@@ -333,9 +333,7 @@ function fmtDuration(mins) {
   return mins === 60 ? '1h' : mins === 90 ? '1.5h' : '2h';
 }
 
-// Session start = 10:00 AM = 600 minutes from midnight
-const DAY_START = 600;
-const BREAK = 30;
+// Fixed session start times (minutes from midnight): 10:00 AM, 1:00 PM, 4:00 PM
 
 function makeSubBlock(subId, startMin) {
   const meta = subjectMeta[subId];
@@ -368,9 +366,10 @@ function makeGap(icon, label, time) {
   return div;
 }
 
-const week = document.getElementById('week');
+// Fixed session start times (minutes from midnight)
+const SESSION_STARTS = [600, 780, 960]; // 10:00 AM, 1:00 PM, 4:00 PM
 
-const breakIcons = [['☕', 'Break'], ['🌤️', 'Afternoon break']];
+const week = document.getElementById('week');
 
 days.forEach((day, di) => {
   const card = document.createElement('div');
@@ -378,18 +377,13 @@ days.forEach((day, di) => {
 
   const daySubs = schedule[di];
 
-  // Calculate end time dynamically
-  let cursor = DAY_START;
-  daySubs.forEach((s, i) => {
-    if (i > 0) cursor += BREAK;
-    cursor += subjectMeta[s].duration;
-  });
-  const endLabel = fmtTime(cursor);
+  // End time = S3 start + S3 subject duration
+  const s3End = SESSION_STARTS[2] + subjectMeta[daySubs[2]].duration;
 
   card.innerHTML = `
     <div class="day-header">
       <span class="day-name">${day}</span>
-      <span class="day-range">10:00 AM – ${endLabel}</span>
+      <span class="day-range">10:00 AM – ${fmtTime(s3End)}</span>
     </div>
     <div class="blocks" id="b${di}"></div>
   `;
@@ -397,17 +391,20 @@ days.forEach((day, di) => {
 
   const blocks = card.querySelector(`#b${di}`);
 
-  let t = DAY_START;
+  const breakLabels = [
+    ['☕', 'Break'],
+    ['🌤️', 'Afternoon break'],
+  ];
+
   daySubs.forEach((subId, i) => {
-    const { el, endMin } = makeSubBlock(subId, t);
+    const start = SESSION_STARTS[i];
+    const { el, endMin } = makeSubBlock(subId, start);
     blocks.appendChild(el);
-    t = endMin;
 
     if (i < daySubs.length - 1) {
-      const breakEnd = t + BREAK;
-      const [icon, label] = breakIcons[i] || ['⏸️', 'Break'];
-      blocks.appendChild(makeGap(icon, label, `${fmtTime(t)} – ${fmtTime(breakEnd)}`));
-      t = breakEnd;
+      const nextStart = SESSION_STARTS[i + 1];
+      const [icon, label] = breakLabels[i] || ['⏸️', 'Break'];
+      blocks.appendChild(makeGap(icon, label, `${fmtTime(endMin)} – ${fmtTime(nextStart)}`));
     }
   });
 });
